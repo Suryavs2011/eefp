@@ -1,0 +1,53 @@
+{
+  "name": "eefp",
+  "version": "0.0.21",
+  "description": "eefp turns your Express app into a real-time powerhouse with instant WebSocket and SSE support🚀",
+  "keywords": [
+  "eefp",
+  "express-extended-for-protocols",
+  "express extended for protocols",
+  "express",
+  "express-extension",
+  "real-time",
+  "websocket",
+  "websockets",
+  "ws",
+  "sse",
+  "server-sent-events",
+  "realtime-api",
+  "streaming",
+  "event-stream",
+  "express-ws",
+  "http-upgrade",
+  "socket",
+  "live-updates",
+  "push-notifications",
+  "api",
+  "nodejs",
+  "middleware",
+  "router",
+  "protocols",
+  "multi-protocol",
+  "networking"
+],
+  "homepage": "https://github.com/Suryavs2011/eefp#readme",
+  "bugs": {
+    "url": "https://github.com/Suryavs2011/eefp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Suryavs2011/eefp.git"
+  },
+  "license": "MIT",
+  "author": "Surya V S(developersuryavs@suryavs.net.in)",
+  "type": "module",
+  "main": "./cjsindex.cjs",
+  "exports": {
+    "import": "./mjsindex.mjs",
+    "require": "./cjsindex.cjs"
+  },
+  "scripts": {
+    "test-cjs": "node cjsindex.cjs",
+    "test-mjs": "node mjsindex.mjs"
+  }
+  }
