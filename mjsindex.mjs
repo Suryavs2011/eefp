@@ -5007,71 +5007,106 @@ function requireAddws () {
 	hasRequiredAddws = 1;
 	const http = require$$2;
 	const { WebSocketServer } = requireWs();
+	const url = require$$7;
 
-	addws = function(app){
+	addws = function(app) {
 	const server = http.createServer(app);
-	const wss = new WebSocketServer({ server, perMessageDeflate: true });
+	const wss = new WebSocketServer({ noServer: true, perMessageDeflate: true });
 	const wsRoutes = [];
 	const allClients = new Set();
 
-	function wrapMiddleware(middleware){
+	function wrapMiddleware(middleware) {
 	return (ws, req, next) => {
-	try{ middleware(req, null, next); }catch(e){ next && next(e); }
+	try { middleware(req, null, next); }
+	catch(e) { next && next(e); }
 	}
 	}
 
-	function registerWs(route, ...handlers){
+	function registerWs(path, ...handlers) {
 	const wsHandler = handlers.pop();
 	const wrappedMiddlewares = handlers.map(wrapMiddleware);
-	wsRoutes.push({ route: route.replace(/\/?$/,'/'), handler: wsHandler, middlewares: wrappedMiddlewares });
+	wsRoutes.push({ path, handler: wsHandler, middlewares: wrappedMiddlewares });
 	}
 
 	app.ws = registerWs;
-	if(app.Router) app.Router.prototype.ws = registerWs;
+	if (app.Router) app.Router.prototype.ws = registerWs;
+
+	function matchRoute(reqPath) {
+	for (let route of wsRoutes) {
+	if (route.path === reqPath) return route
+	const paramMatch = route.path.match(/:([A-Za-z0-9_]+)/g);
+	if (paramMatch) {
+	const parts = route.path.split('/');
+	const reqParts = reqPath.split('/');
+	if (parts.length === reqParts.length) {
+	const params = {};
+	let matched = true;
+	for (let i = 0; i < parts.length; i++) {
+	if (parts[i].startsWith(':')) params[parts[i].slice(1)] = reqParts[i];
+	else if (parts[i] !== reqParts[i]) matched = false;
+	}
+	if (matched) {
+	req.params = params;
+	return route
+	}
+	}
+	}
+	if (route.path.endsWith('*')) {
+	const base = route.path.slice(0, -1);
+	if (reqPath.startsWith(base)) return route
+	}
+	}
+	return null
+	}
 
 	server.on('upgrade', (req, socket, head) => {
-	const url = req.url.replace(/\/?$/,'/');
-	const match = wsRoutes.find(r => url.startsWith(r.route));
-	if(!match){ socket.destroy(); return }
-
+	const reqPath = url.parse(req.url).pathname;
+	const route = matchRoute(reqPath);
+	if (!route) {
+	socket.destroy();
+	return
+	}
 	wss.handleUpgrade(req, socket, head, ws => {
 	ws.isAlive = true;
 	allClients.add(ws);
-	ws.on('pong', ()=>{ ws.isAlive = true; });
-	ws.on('close', ()=> allClients.delete(ws));
-
-	// Run middlewares in sequence
+	ws.on('pong', () => ws.isAlive = true);
+	ws.on('close', () => allClients.delete(ws));
 	let i = 0;
-	const next = () => {
-	if(i < match.middlewares.length){
-	const mw = match.middlewares[i++];
+	const next = (err) => {
+	if (err) {
+	if (typeof app.handle === 'function') return app.handle(err, req, null, () => ws.close(1011, 'WS Error'))
+	else return ws.close(1011, 'WS Error')
+	}
+	if (i < route.middlewares.length) {
+	const mw = route.middlewares[i++];
 	mw(ws, req, next);
-	}else {
-	try{ match.handler(ws, req); }catch(e){ ws.close(); }
+	} else {
+	try { route.handler(ws, req); }
+	catch (e) { next(e); }
 	}
 	};
 	next();
-
 	wss.emit('connection', ws, req);
 	});
 	});
 
-	const interval = setInterval(()=>{
-	wss.clients.forEach(s=>{
-	if(!s.isAlive) return s.terminate()
-	s.isAlive = false;
-	s.ping();
+	const interval = setInterval(() => {
+	wss.clients.forEach(ws => {
+	if (!ws.isAlive) return ws.terminate()
+	ws.isAlive = false;
+	ws.ping();
 	});
 	}, 30000);
 
-	wss.on('close', ()=> clearInterval(interval));
+	wss.on('close', () => clearInterval(interval));
 
 	app.getWss = () => wss;
 	app.getAllClients = () => allClients;
-	app.closeAllClients = (code=1000,msg='Server closing')=>{
-	allClients.forEach(ws=>ws.close(code,msg));
+	app.closeAllClients = (code = 1000, msg = 'Server closing') => {
+	allClients.forEach(ws => ws.close(code, msg));
 	};
-	app.listen = (...a)=>server.listen(...a);
+
+	app.listen = (...args) => server.listen(...args);
 	return app
 	};
 	return addws;

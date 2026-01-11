@@ -10,7 +10,7 @@ eefp is a lightweight utility that extends an existing Express app with built-in
 
 ✅ Client management utilities
 
-It works like a plugin: you pass your Express app into eefp(app) and your app instantly gains new protocol features.
+It works like a plugin: pass your Express app into eefp(app) and your app instantly gains new protocol features.
 
 &nbsp;
 
@@ -62,29 +62,43 @@ app.listen(3000, () => {
 
 eefp adds WebSocket routing directly to your Express app.
 
-➤ Create a WebSocket Route
+➤ Create WebSocket Routes
 
 js
 
 Copy
 
-app.ws("/ws", (req, ws) => {
+// Exact route
+
+app.ws("/ws", (ws, req) => {
 
 &nbsp; ws.send("Connected!")
 
+})
 
 
-&nbsp; ws.on("message", msg => {
 
-&nbsp;   console.log("Received:", msg.toString())
+// Parameterized route
 
-&nbsp;   ws.send("Echo: " + msg)
+app.ws("/chat/:roomId", (ws, req) => {
 
-&nbsp; })
+&nbsp; console.log("Room ID:", req.params.roomId)
+
+&nbsp; ws.send(`Welcome to room ${req.params.roomId}`)
 
 })
 
-✔ Supports middleware just like Express routes.
+
+
+// Wildcard route
+
+app.ws("/news/\*", (ws) => {
+
+&nbsp; ws.send("This matches any /news/... path")
+
+})
+
+➤ Middleware Support
 
 js
 
@@ -100,7 +114,7 @@ app.ws("/secure",
 
 &nbsp; },
 
-&nbsp; (req, ws) => {
+&nbsp; (ws, req) => {
 
 &nbsp;   ws.send("Secure connection established")
 
@@ -108,11 +122,25 @@ app.ws("/secure",
 
 )
 
+➤ Error Handling
+
+Middleware or handler errors are automatically propagated to Express. Handle them like normal Express errors:
+
+js
+
+Copy
+
+app.use((err, req, res, next) => {
+
+&nbsp; console.error("WebSocket error:", err)
+
+})
+
 &nbsp;
 
 🧠 WebSocket Utilities
 
-eefp exposes helpful WebSocket helpers on the app instance:
+eefp exposes helpful WebSocket helpers:
 
 🔹 Get WebSocket Server
 
@@ -121,8 +149,6 @@ js
 Copy
 
 const wss = app.getWss()
-
-&nbsp;
 
 🔹 Get All Connected Clients
 
@@ -134,8 +160,6 @@ const clients = app.getAllClients()
 
 console.log("Total clients:", clients.size)
 
-&nbsp;
-
 🔹 Close All Clients
 
 js
@@ -146,11 +170,9 @@ app.closeAllClients(1000, "Server shutting down")
 
 &nbsp;
 
-&nbsp;
-
 📡 Server-Sent Events (SSE) Support
 
-eefp allows you to create SSE endpoints easily.
+eefp makes SSE endpoints easy.
 
 ➤ Create an SSE Route
 
@@ -174,19 +196,13 @@ const es = new EventSource("/events")
 
 es.onmessage = e => console.log(e.data)
 
-&nbsp;
-
-📢 Broadcast SSE Messages
-
-Send a message to all connected SSE clients:
+➤ Broadcast SSE Messages
 
 js
 
 Copy
 
 app.broadcastSse("Hello all clients!")
-
-&nbsp;
 
 👥 Get All SSE Clients
 
@@ -200,11 +216,61 @@ console.log("SSE clients:", clients.size)
 
 &nbsp;
 
-&nbsp;
-
 🔁 Router Support
 
-If you are using Express Router, SSE routes also work:
+eefp works with Express Routers for both WebSocket and SSE.
+
+➤ WebSocket Routes in Router
+
+js
+
+Copy
+
+const express = require("express")
+
+const router = express.Router()
+
+
+
+// Parameterized WS route
+
+router.ws("/room/:roomId", (ws, req) => {
+
+&nbsp; console.log("Room ID:", req.params.roomId)
+
+&nbsp; ws.send(`Welcome to room ${req.params.roomId}`)
+
+})
+
+
+
+// WS route with middleware
+
+router.ws("/secure",
+
+&nbsp; (req, res, next) => {
+
+&nbsp;   console.log("Router middleware executed")
+
+&nbsp;   next()
+
+&nbsp; },
+
+&nbsp; (ws, req) => {
+
+&nbsp;   ws.send("Secure WS connection established in router")
+
+&nbsp; }
+
+)
+
+
+
+app.use("/api", router)
+
+// Now WS routes are /api/room/:roomId and /api/secure
+
+➤ SSE Routes in Router
 
 js
 
@@ -224,13 +290,25 @@ router.sse("/stream", (req, res) => {
 
 app.use("/api", router)
 
-&nbsp;
+// SSE endpoint is /api/stream
+
+Notes:
+
+• 
+
+Route parameters (:param) and wildcards (\*) work inside routers.
+
+• 
+
+Middleware in routers executes for WS and SSE routes.
+
+• 
+
+Express-style error handling works across routers.
 
 &nbsp;
 
 🎯 How It Works
-
-• 
 
 eefp(app) internally:
 
@@ -250,9 +328,11 @@ Overrides app.listen() to attach protocol servers automatically
 
 Keeps track of connected clients
 
-No extra configuration required.
+• 
 
-&nbsp;
+Supports advanced WS routing with parameters, wildcards, middleware, and Express-style error handling
+
+No extra configuration required.
 
 &nbsp;
 
@@ -266,9 +346,9 @@ Description
 
 app.ws(path, ...handlers) 
 
-Create WebSocket route
+Create WebSocket route (supports middleware, params, wildcards)
 
-app.getWss() 
+app.getWss()
 
 Get WebSocketServer instance
 
@@ -276,13 +356,11 @@ app.getAllClients()
 
 Get all connected WS clients
 
-app.closeAllClients(code, msg) 
+app.closeAllClients(code, msg)
 
 Close all WS clients
 
 Copy table
-
-&nbsp;
 
 SSE
 
@@ -294,7 +372,7 @@ app.sse(path, ...handlers)
 
 Create SSE route
 
-app.broadcastSse(message) 
+app.broadcastSse(message)
 
 Send message to all SSE clients
 
@@ -304,9 +382,7 @@ Get all connected SSE clients
 
 Copy table
 
-&nbsp;
 
-&nbsp;
 
 🛡️ Requirements
 
